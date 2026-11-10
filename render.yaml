@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: the-product-zone-api
+    runtime: node
+    plan: free
+    healthCheckPath: /api/health
+    buildCommand: npm ci
+    startCommand: npm run start --workspace server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: SITE_URL
+        sync: false
+      - key: ADMIN_COOKIE_SAME_SITE
+        value: none

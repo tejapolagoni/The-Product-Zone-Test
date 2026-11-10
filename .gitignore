@@ -1,0 +1,15 @@
+node_modules/
+client/dist/
+**/node_modules/
+**/dist/
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+server/uploads/*
+!server/uploads/.gitkeep
+npm-debug.log*
+.DS_Store
+.vercel/
