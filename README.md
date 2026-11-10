@@ -88,7 +88,7 @@ The site includes page titles/descriptions, Open Graph/Twitter metadata, a favic
 
 ## Deploy with Vercel, Render, and MongoDB Atlas
 
-`vercel.json` configures the React/Vite static build, output directory, and SPA route fallback; the fallback deliberately excludes `/api/*` so those requests reach the Vercel function in `api/[...path].js`. That function forwards same-origin API requests to Render so admin cookies remain first-party in browsers that block third-party cookies. `render.yaml` configures the Express API, production start command, health check, and environment-variable slots. The backend uses `process.env.PORT`, connects to the configured MongoDB Atlas URI, and requires the exact HTTPS `CLIENT_ORIGIN` in production.
+`vercel.json` configures the React/Vite static build, output directory, and SPA route fallback. It sends nested `/api/*` paths through the named Vercel function in `api/proxy.js`, which delegates to the shared handler in `api/[...path].js`; the handler forwards the original method, headers, body, and query string to Render. The SPA fallback excludes API paths, and same-origin responses preserve admin-cookie behavior. `render.yaml` configures the Express API, production start command, health check, and environment-variable slots. The backend uses `process.env.PORT`, connects to the configured MongoDB Atlas URI, and requires the exact HTTPS `CLIENT_ORIGIN` in production.
 
 No Git remote or Vercel/Render account authorization is available in this workspace, so deployment has not been performed. To publish:
 

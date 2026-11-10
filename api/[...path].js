@@ -1,12 +1,20 @@
 function getTargetUrl(requestUrl, method, apiOrigin) {
   const base = new URL(apiOrigin);
   const target = new URL(requestUrl, base);
+  if (target.pathname === '/api/proxy') {
+    const proxyPath = target.searchParams.get('__proxy_path');
+    if (!proxyPath || proxyPath.startsWith('/') || /(?:^|\/)\.{1,2}(?:\/|$)/.test(proxyPath) || proxyPath.includes('\\')) {
+      throw new Error('The rewritten API path is invalid.');
+    }
+    target.pathname = `/api/${proxyPath}`;
+    target.searchParams.delete('__proxy_path');
+  }
   if (base.protocol !== 'https:' || target.origin !== base.origin) {
     throw new Error('API proxy requests must remain on the configured HTTPS origin.');
   }
   if (method === 'GET' && /^\/api\/uploads\/[^/]+$/.test(target.pathname)) {
-  target.pathname = target.pathname.replace(/^\/api/, '');
- }
+    target.pathname = target.pathname.replace(/^\/api/, '');
+  }
   return target;
 }
 
