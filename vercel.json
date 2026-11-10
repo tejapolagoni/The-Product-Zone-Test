@@ -5,8 +5,12 @@
   "outputDirectory": "client/dist",
   "rewrites": [
     {
-      "source": "/api/:prefix/:path*",
-      "destination": "/api/proxy?__proxy_path=:prefix/:path*"
+      "source": "/api/uploads/:filename",
+      "destination": "https://the-product-zone-api.onrender.com/uploads/:filename"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "https://the-product-zone-api.onrender.com/api/:path*"
     },
     {
       "source": "/:path((?!api/).*)",

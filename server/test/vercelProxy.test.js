@@ -21,14 +21,13 @@ test('Vercel SPA fallback excludes API routes so the proxy function can handle t
   assert.equal(matchesFallback.test('/admin/login'), true);
 });
 
-test('Vercel rewrites nested API routes to the named proxy function', () => {
+test('Vercel forwards all API paths to Render and preserves uploaded-image URLs', () => {
   const config = JSON.parse(readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8'));
-  const nestedApiRewrite = config.rewrites.find(rewrite => rewrite.destination.startsWith('/api/proxy?'));
+  const imageRewrite = config.rewrites.find(rewrite => rewrite.source === '/api/uploads/:filename');
+  const apiRewrite = config.rewrites.find(rewrite => rewrite.source === '/api/:path*');
 
-  assert.deepEqual(nestedApiRewrite, {
-    source: '/api/:prefix/:path*',
-    destination: '/api/proxy?__proxy_path=:prefix/:path*'
-  });
+  assert.equal(imageRewrite.destination, 'https://the-product-zone-api.onrender.com/uploads/:filename');
+  assert.equal(apiRewrite.destination, 'https://the-product-zone-api.onrender.com/api/:path*');
 });
 
 test('Vercel API proxy maps uploaded image reads to the Express static upload route', () => {
