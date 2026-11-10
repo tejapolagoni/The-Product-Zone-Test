@@ -5,8 +5,8 @@ function getTargetUrl(requestUrl, method, apiOrigin) {
     throw new Error('API proxy requests must remain on the configured HTTPS origin.');
   }
   if (method === 'GET' && /^\/api\/uploads\/[^/]+$/.test(target.pathname)) {
-    target.pathname = target.pathname.replace(/^\/api/, '');
-  }
+  target.pathname = target.pathname.replace(/^\/api/, '');
+ }
   return target;
 }
 
