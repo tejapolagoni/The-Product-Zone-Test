@@ -2,13 +2,24 @@ const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 async function request(path, options = {}) {
   const response = await fetch(`${apiBase}${path.startsWith('/api') ? path : `/api${path}`}`, {
-    credentials: 'include',
     ...options,
-    headers: options.body instanceof FormData
-      ? options.headers
-      : { 'Content-Type': 'application/json', ...options.headers }
+    credentials: 'include',
+    ...(options.body instanceof FormData
+      ? options.headers ? { headers: options.headers } : {}
+      : { headers: { 'Content-Type': 'application/json', ...options.headers } })
   });
-  const result = response.status === 204 ? {} : await response.json().catch(() => ({}));
+  let result = {};
+  if (response.status !== 204) {
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json') && !contentType.includes('+json')) {
+      throw new Error(`The API returned an unexpected response (${response.status}). Check the Vercel API proxy and RENDER_API_URL configuration.`);
+    }
+    try {
+      result = await response.json();
+    } catch {
+      throw new Error(`The API returned invalid JSON (${response.status}).`);
+    }
+  }
   if (!response.ok) {
     const message = response.status >= 500
       ? 'The product service is unavailable. Check that the API is running and MongoDB is connected.'

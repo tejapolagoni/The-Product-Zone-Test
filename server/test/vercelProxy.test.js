@@ -1,6 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import proxy from '../../api/[...path].js';
+
+test('Vercel SPA fallback excludes API routes so the proxy function can handle them', () => {
+  const config = JSON.parse(readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8'));
+  const fallback = config.rewrites.find(rewrite => rewrite.destination === '/index.html');
+  const [, pattern] = fallback.source.match(/^\/:path\((.*)\)$/) || [];
+  const matchesFallback = new RegExp(`^/${pattern}$`);
+
+  assert.equal(fallback.source, '/:path((?!api/).*)');
+  assert.equal(matchesFallback.test('/api/products'), false);
+  assert.equal(matchesFallback.test('/api/categories'), false);
+  assert.equal(matchesFallback.test('/products'), true);
+  assert.equal(matchesFallback.test('/admin/login'), true);
+});
 
 test('Vercel API proxy maps uploaded image reads to the Express static upload route', () => {
   const target = proxy.getTargetUrl('/api/uploads/image-123.webp', 'GET', 'https://api.example.onrender.com');
