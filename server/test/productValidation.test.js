@@ -24,6 +24,28 @@ test('accepts a direct Amazon product URL and stores the affiliate URL exactly',
   assert.equal(normalizeProduct(validProduct).amazonAffiliateUrl, validProduct.amazonAffiliateUrl);
 });
 
+test('normalizes features, images, tags, and merchandising visibility flags', () => {
+  const product = normalizeProduct({
+    ...validProduct,
+    features: [' Durable build ', ''],
+    images: [' https://images.example.com/side.jpg '],
+    tags: [' Daily pick '],
+    isFeatured: true,
+    isTrending: true,
+    isRecommended: true,
+    isVisible: false
+  });
+
+  assert.deepEqual(product.features, ['Durable build']);
+  assert.deepEqual(product.images, ['https://images.example.com/side.jpg']);
+  assert.deepEqual(product.tags, ['Daily pick']);
+  assert.equal(product.isFeatured, true);
+  assert.equal(product.isTrending, true);
+  assert.equal(product.isRecommended, true);
+  assert.equal(product.isVisible, false);
+  assert.equal(product.amazonAffiliateUrl, validProduct.amazonAffiliateUrl);
+});
+
 test('rejects generic Amazon homepages and non-Amazon destinations', () => {
   assert.match(validateProduct({ ...validProduct, amazonAffiliateUrl: 'https://www.amazon.com/' }), /direct Amazon product URL/);
   assert.match(validateProduct({ ...validProduct, amazonAffiliateUrl: 'https://www.amazon.in/s?k=shoes' }), /direct Amazon product URL/);
@@ -32,6 +54,8 @@ test('rejects generic Amazon homepages and non-Amazon destinations', () => {
 
 test('rejects invalid images and malformed product bodies', () => {
   assert.match(validateProduct({ ...validProduct, image: 'javascript:alert(1)' }), /Main image must be/);
+  assert.match(validateProduct({ ...validProduct, images: ['javascript:alert(1)'] }), /Additional images must be/);
+  assert.match(validateProduct({ ...validProduct, features: ['x'.repeat(501)] }), /Each feature must be/);
   assert.match(validateProduct(null), /must be an object/);
 });
 

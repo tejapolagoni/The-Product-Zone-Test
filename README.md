@@ -71,7 +71,7 @@ The optional imported price is retained in MongoDB for admin reference only and 
 - `POST /api/products`, `PUT /api/products/:id`, `DELETE /api/products/:id`.
 - `POST /api/products/admin/import/preview`, `POST /api/products/admin/import` — administrator-only CSV validation preview and bulk import.
 - `POST /api/categories`, `PUT /api/categories/:id`, `DELETE /api/categories/:id`.
-- `POST /api/uploads` — admin-only image upload (JPEG, PNG, WebP or GIF, up to 5 MB).
+- `POST /api/uploads` — admin-only image upload (JPEG, PNG, WebP or GIF, up to 5 MB); image bytes are stored in the MongoDB `productImages` GridFS bucket and served from `/uploads/:fileId`.
 
 All product and category mutations require the administrator cookie and the configured `CLIENT_ORIGIN`. Product URLs are stored exactly as provided; direct Amazon marketplace product URLs (including Amazon India) and supported Amazon short-link hosts are accepted. Generic Amazon home/search pages and non-Amazon destinations are rejected. Verify each product and tracking tag in Associates Central.
 
@@ -100,7 +100,7 @@ No Git remote or Vercel/Render account authorization is available in this worksp
 6. In Vercel, keep the Root Directory set to the repository root, leave `VITE_API_URL` empty so browser API requests use the same-origin rewrites, and redeploy after configuration changes. The Render origin is specified in `vercel.json`; it is a public service URL, not a credential.
 7. Test the Render `/api/health`, public categories/products, admin login, create/edit/delete, CSV preview/import, image behavior and an exact Amazon affiliate link. Do not publish the Vercel URL until the checks pass.
 
-Free Render web services can sleep while idle and have ephemeral local storage, so they do not guarantee uninterrupted 24/7 response times. Product image uploads saved there can disappear after restarts/redeploys; use stable external image URLs or configure durable storage. The Vercel same-origin API proxy avoids third-party admin-cookie restrictions. Review hosting limits and costs before choosing paid always-on plans.
+Free Render web services can sleep while idle, so they do not guarantee uninterrupted 24/7 response times. Uploaded image files are stored in MongoDB Atlas GridFS rather than Render's ephemeral filesystem, so image data survives Render restarts and redeploys. The Vercel same-origin API proxy avoids third-party admin-cookie restrictions. Review hosting limits and costs before choosing paid always-on plans.
 
 ## Credential reminder
 

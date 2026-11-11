@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import path from 'node:path';
 import productRoutes from './routes/productRoutes.js';
 import authRoutes from './routes/authRoutes.js';
-import uploadRoutes from './routes/uploadRoutes.js';
+import uploadRoutes, { getProductImage } from './routes/uploadRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import { errorHandler, notFound } from './middleware/errors.js';
 import { isAllowedClientOrigin } from './config/clientOrigin.js';
@@ -23,6 +23,7 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 app.use('/uploads', express.static(path.resolve('uploads'), { maxAge: '1d', immutable: true }));
+app.get('/uploads/:fileId', getProductImage);
 app.get('/api/health', (req, res) => {
   const database = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   res.status(database === 'connected' ? 200 : 503).json({ status: database === 'connected' ? 'ok' : 'unavailable', database });

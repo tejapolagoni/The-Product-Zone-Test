@@ -128,8 +128,9 @@ export function validateProduct(input) {
   if (input.images !== undefined && (!Array.isArray(input.images) || input.images.some(image => typeof image !== 'string'))) {
     return 'Additional images must be a list of image URLs.';
   }
-  if ((input.images || []).some(image => !validImage(image))) return 'Additional images must be HTTP(S) URLs or uploaded images.';
+  if ((input.images || []).some(image => image.length > 2048 || !validImage(image))) return 'Additional images must be HTTP(S) URLs or uploaded images no longer than 2048 characters.';
   if (input.features.length > 30 || (input.images || []).length > 10) return 'Add no more than 30 features and 10 additional images.';
+  if (input.features.some(feature => feature.length > 500)) return 'Each feature must be 500 characters or fewer.';
   if (input.tags !== undefined && (!Array.isArray(input.tags) || input.tags.some(tag => typeof tag !== 'string' || tag.length > 60))) {
     return 'Tags must be a list of text values, each 60 characters or fewer.';
   }

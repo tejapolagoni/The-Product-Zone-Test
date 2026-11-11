@@ -138,8 +138,10 @@ function ProductForm({ product, categories, onSave, onCancel, saving, error, set
   const [imageText, setImageText] = useState((product?.images || []).join('\n'));
   const [tagText, setTagText] = useState((product?.tags || []).join('\n'));
   const [uploading, setUploading] = useState(false);
+  const [previewFailed, setPreviewFailed] = useState(false);
 
   function update(key, value) {
+    if (key === 'image') setPreviewFailed(false);
     setForm(current => ({ ...current, [key]: value }));
   }
 
@@ -188,7 +190,7 @@ function ProductForm({ product, categories, onSave, onCancel, saving, error, set
       <label className="check-option"><input type="checkbox" checked={form.isRecommended} onChange={event => update('isRecommended', event.target.checked)} /><span><strong>Recommended product</strong><small>Include in recommendations</small></span></label>
       <label className="check-option"><input type="checkbox" checked={form.isVisible} onChange={event => update('isVisible', event.target.checked)} /><span><strong>Visible on website</strong><small>Hidden products remain in your dashboard</small></span></label>
     </div>
-    {form.image && <div className="image-preview"><img src={imageUrl(form.image)} alt="Product image preview" onError={event => { event.currentTarget.style.display = 'none'; }} /><span>Image preview</span></div>}
+    {form.image && <div className="image-preview">{previewFailed ? <span role="alert">Image preview could not load. Check the URL or upload the image again.</span> : <img src={imageUrl(form.image)} alt="Product image preview" onError={() => setPreviewFailed(true)} />}<span>Image preview</span></div>}
     {error && <div className="form-error" role="alert">{error}</div>}
     <div className="editor-actions"><button type="button" className="button button-outline" onClick={onCancel}>Cancel</button><button type="submit" className="button button-dark" disabled={saving || uploading}>{saving ? 'Saving…' : <><Save size={16} /> Save product</>}</button></div>
   </form>;
@@ -260,8 +262,10 @@ export default function AdminPage() {
       setProductPagination(result.pagination);
       setAdminPage(result.pagination.page);
       setError('');
+      return true;
     } catch (reason) {
       setError(reason.message);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -299,8 +303,10 @@ export default function AdminPage() {
       else await api.createProduct(data);
       setShowEditor(false);
       setEditorProduct(null);
-      setNotice(editorProduct?._id ? 'Product updated.' : 'Product added to your collection.');
-      await loadProducts(editorProduct?._id ? adminPage : 1);
+      const refreshed = await loadProducts(editorProduct?._id ? adminPage : 1);
+      setNotice(refreshed
+        ? editorProduct?._id ? 'Product updated.' : 'Product added to your collection.'
+        : 'Product saved, but the dashboard could not refresh. Try loading products again.');
       window.setTimeout(() => setNotice(''), 3500);
     } catch (reason) {
       setError(reason.message);
@@ -315,8 +321,8 @@ export default function AdminPage() {
     try {
       await api.deleteProduct(product._id);
       const page = products.length === 1 && adminPage > 1 ? adminPage - 1 : adminPage;
-      await loadProducts(page);
-      setNotice('Product deleted.');
+      const refreshed = await loadProducts(page);
+      setNotice(refreshed ? 'Product deleted.' : 'Product deleted, but the dashboard could not refresh. Try loading products again.');
       window.setTimeout(() => setNotice(''), 3500);
     } catch (reason) {
       setError(reason.message);
