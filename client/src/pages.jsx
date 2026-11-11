@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Compass, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronLeft, ChevronRight, Compass, Expand, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ProductCard from './components/ProductCard.jsx';
 import { EmptyState, ErrorState, Loading, SectionHeading } from './components/Shared.jsx';
@@ -155,11 +155,36 @@ export function ProductsPage() {
   </div>;
 }
 
+function getRecentlyViewed() {
+  try {
+    const items = JSON.parse(window.localStorage.getItem('tpz-recent-products') || '[]');
+    return Array.isArray(items) ? items.filter(item => item?._id && item.productName && item.image) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function ProductDetailPage() {
   const { id } = useParams();
   const [retryKey, setRetryKey] = useState(0);
   const { data, error, loading } = usePageData(() => api.product(id), [id, retryKey]);
   const product = data?.product;
+  const { data: relatedData } = usePageData(
+    () => product ? api.products({ category: product.category, limit: 8 }) : Promise.resolve({ products: [] }),
+    [product?._id, product?.category]
+  );
+  const [selectedImage, setSelectedImage] = useState(0);
+  const [imageOpen, setImageOpen] = useState(false);
+  const [recentlyViewed, setRecentlyViewed] = useState(getRecentlyViewed);
+  const imageCloseRef = useRef(null);
+  const imageTriggerRef = useRef(null);
+  const images = useMemo(
+    () => [...new Set([product?.image, ...(product?.images || [])].filter(Boolean))],
+    [product?.image, product?.images]
+  );
+  const relatedProducts = (relatedData?.products || []).filter(item => item._id !== product?._id).slice(0, 4);
+  const recentProducts = recentlyViewed.filter(item => item._id !== product?._id).slice(0, 4);
+
   useEffect(() => {
     if (!product) return;
     document.title = `${product.productName} — THE PRODUCT ZONE`;
@@ -173,25 +198,116 @@ export function ProductDetailPage() {
     if (ogImage) ogImage.setAttribute('content', imageUrl(product.image));
     const twitterImage = document.querySelector('meta[name="twitter:image"]');
     if (twitterImage) twitterImage.setAttribute('content', imageUrl(product.image));
+    setSelectedImage(0);
+    setImageOpen(false);
+
+    const recent = {
+      _id: product._id,
+      productName: product.productName,
+      brand: product.brand,
+      category: product.category,
+      description: product.description,
+      image: product.image,
+      amazonAffiliateUrl: product.amazonAffiliateUrl,
+      isFeatured: product.isFeatured
+    };
+    const nextRecent = [recent, ...getRecentlyViewed().filter(item => item._id !== product._id)].slice(0, 5);
+    setRecentlyViewed(nextRecent);
+    try {
+      window.localStorage.setItem('tpz-recent-products', JSON.stringify(nextRecent));
+    } catch {
+      // Browsing still works when storage is disabled or full.
+    }
   }, [product]);
+
+  useEffect(() => {
+    if (!imageOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    imageCloseRef.current?.focus();
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') setImageOpen(false);
+    }
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+      imageTriggerRef.current?.focus();
+    };
+  }, [imageOpen]);
+
   if (loading) return <div className="detail-loading"><Loading label="Finding your product" /></div>;
   if (error && error !== 'Product not found.') return <div className="detail-loading"><ErrorState message={error} retry={() => setRetryKey(value => value + 1)} /></div>;
   if (!product) return <NotFoundPage product />;
 
-  const images = [product.image, ...(product.images || [])].filter(Boolean);
+  const activeImage = images[selectedImage] || product.image;
+  const affiliateDisclosure = 'Some links are affiliate links. As an Amazon Associate I earn from qualifying purchases.';
   return <div className="page-shell detail-page">
-    <Link className="back-link" to="/products"><ArrowLeft size={15} /> BACK TO ALL FINDS</Link>
+    <nav className="detail-breadcrumbs" aria-label="Breadcrumb">
+      <Link to="/">Home</Link><ChevronRight size={13} /><Link to="/products">Products</Link><ChevronRight size={13} /><Link to={`/products?category=${encodeURIComponent(product.category)}`}>{product.category}</Link><ChevronRight size={13} /><span aria-current="page">{product.productName}</span>
+    </nav>
     <div className="detail-layout">
-      <div className="detail-gallery"><div className="detail-main-image"><img src={imageUrl(product.image)} alt={product.productName} />{product.isFeatured && <span className="product-badge">OUR PICK</span>}</div>
-        {images.length > 1 && <div className="detail-thumbnails">{images.slice(1).map((image, index) => <img key={`${image}-${index}`} src={imageUrl(image)} alt={`${product.productName}, view ${index + 2}`} loading="lazy" />)}</div>}
-      </div>
-      <div className="detail-copy"><span className="eyebrow">{product.category} <span className="detail-dot">·</span> {product.brand}</span><h1>{product.productName}</h1><div className="detail-rule" /><p className="detail-description">{product.description}</p>
-        {product.features?.length > 0 && <div className="feature-list"><h2>THE DETAILS</h2>{product.features.map((feature, index) => <div key={`${feature}-${index}`}><span>0{index + 1}</span><p>{feature}</p></div>)}</div>}
-        <a className="button button-dark detail-amazon" href={product.amazonAffiliateUrl} target="_blank" rel="nofollow sponsored noreferrer">View on Amazon <ArrowUpRight size={18} /></a>
-        <p className="detail-disclosure">You’ll leave The Product Zone and visit Amazon. Some links are affiliate links; as an Amazon Associate I earn from qualifying purchases.</p>
+      <section className="detail-gallery" aria-label={`${product.productName} image gallery`}>
+        <div className="detail-gallery-topline"><span><span className="detail-status-dot" /> THE PRODUCT ZONE / PRODUCT FILE</span><span>{String(selectedImage + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}</span></div>
+        <div className="detail-main-image">
+          <img key={activeImage} src={imageUrl(activeImage)} alt={`${product.productName}, image ${selectedImage + 1}`} />
+          {product.isFeatured && <span className="detail-featured"><Sparkles size={13} /> EDITOR’S PICK</span>}
+          <button ref={imageTriggerRef} type="button" className="detail-expand" onClick={() => setImageOpen(true)} aria-label="View product image full screen"><Expand size={17} /></button>
+          {images.length > 1 && <>
+            <button type="button" className="detail-image-arrow previous" onClick={() => setSelectedImage(index => (index - 1 + images.length) % images.length)} aria-label="Previous product image"><ChevronLeft size={20} /></button>
+            <button type="button" className="detail-image-arrow next" onClick={() => setSelectedImage(index => (index + 1) % images.length)} aria-label="Next product image"><ChevronRight size={20} /></button>
+          </>}
+        </div>
+        {images.length > 1 && <div className="detail-thumbnails" aria-label="Choose a product image">{images.map((image, index) =>
+          <button key={`${image}-${index}`} type="button" className={index === selectedImage ? 'is-selected' : ''} onClick={() => setSelectedImage(index)} aria-label={`Show product image ${index + 1}`} aria-pressed={index === selectedImage}>
+            <img src={imageUrl(image)} alt="" loading={index === 0 ? 'eager' : 'lazy'} />
+          </button>
+        )}</div>}
+      </section>
+      <div className="detail-copy">
+        <div className="detail-product-kicker"><span>{product.brand}</span><span className="detail-dot">/</span><span>{product.category}</span></div>
+        <h1>{product.productName}</h1>
+        <p className="detail-description">{product.description}</p>
+        {product.features?.length > 0 && <section className="detail-highlights" aria-labelledby="detail-highlights-title">
+          <h2 id="detail-highlights-title"><Sparkles size={15} /> PRODUCT HIGHLIGHTS</h2>
+          <ul>{product.features.map((feature, index) => <li key={`${feature}-${index}`}><Check size={15} /><span>{feature}</span></li>)}</ul>
+        </section>}
+        <section className="detail-purchase-card" aria-label="View product on Amazon">
+          <div className="purchase-card-top"><span className="purchase-card-mark">PZ</span><span>THE PRODUCT ZONE SELECT</span><ShieldCheck size={17} /></div>
+          <p>Interested in this find?</p>
+          <span className="purchase-card-note">See current product details directly on Amazon.</span>
+          <a className="button detail-amazon" href={product.amazonAffiliateUrl} target="_blank" rel="nofollow sponsored noreferrer">VIEW ON AMAZON <ArrowUpRight size={17} /></a>
+          <small>{affiliateDisclosure}</small>
+        </section>
+        <div className="detail-trust-row"><span><ShieldCheck size={15} /> Product discovery, not checkout</span><span>Retailer handles purchase & delivery</span></div>
       </div>
     </div>
-    <section className="more-note"><span className="eyebrow">A LITTLE REMINDER</span><p>We’re here to help you discover. When you’re ready, Amazon handles the rest.</p></section>
+    {product.features?.length > 0 && <section className="detail-spec-section">
+      <div className="detail-section-heading"><span className="eyebrow">A CLOSER LOOK</span><h2>What makes it <em>stand out.</em></h2><p>Product highlights provided for this listing.</p></div>
+      <div className="detail-spec-grid">{product.features.map((feature, index) => <article key={`${feature}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><p>{feature}</p></article>)}</div>
+    </section>}
+    <section className="detail-about-brand">
+      <span className="detail-brand-mark">{product.brand?.slice(0, 1)?.toUpperCase() || 'P'}</span>
+      <div><span className="eyebrow">BRAND & CATEGORY</span><h2>{product.brand}</h2><p>Explore more finds in <Link to={`/products?category=${encodeURIComponent(product.category)}`}>{product.category}</Link>.</p></div>
+      <Link className="button detail-brand-link" to={`/products?category=${encodeURIComponent(product.category)}`}>EXPLORE CATEGORY <ArrowUpRight size={15} /></Link>
+    </section>
+    {relatedProducts.length > 0 && <section className="detail-related-section">
+      <div className="detail-section-heading detail-related-heading"><div><span className="eyebrow">MORE FROM {product.category.toUpperCase()}</span><h2>Related <em>finds.</em></h2></div><Link className="text-link" to={`/products?category=${encodeURIComponent(product.category)}`}>View category <ArrowUpRight size={15} /></Link></div>
+      <ProductGrid products={relatedProducts} />
+    </section>}
+    {recentProducts.length > 0 && <section className="detail-recent-section">
+      <div className="detail-section-heading detail-related-heading"><div><span className="eyebrow">PICK UP WHERE YOU LEFT OFF</span><h2>Recently <em>viewed.</em></h2></div></div>
+      <ProductGrid products={recentProducts} />
+    </section>}
+    <div className="detail-affiliate-note"><ShieldCheck size={18} /><p>{affiliateDisclosure} You’ll leave The Product Zone and visit Amazon. Prices, availability, shipping, and returns are handled by the retailer.</p></div>
+    <div className="detail-mobile-buy"><span>{product.productName}</span><a href={product.amazonAffiliateUrl} target="_blank" rel="nofollow sponsored noreferrer">VIEW ON AMAZON <ArrowUpRight size={16} /></a></div>
+    {imageOpen && <div className="detail-lightbox" role="dialog" aria-modal="true" aria-label={`${product.productName} full-screen image`} onMouseDown={event => { if (event.target === event.currentTarget) setImageOpen(false); }}>
+      <button ref={imageCloseRef} type="button" className="detail-lightbox-close" onClick={() => setImageOpen(false)} aria-label="Close full-screen image"><X size={23} /></button>
+      {images.length > 1 && <button type="button" className="detail-lightbox-arrow previous" onClick={() => setSelectedImage(index => (index - 1 + images.length) % images.length)} aria-label="Previous product image"><ChevronLeft size={25} /></button>}
+      <img src={imageUrl(activeImage)} alt={`${product.productName}, image ${selectedImage + 1}`} />
+      {images.length > 1 && <button type="button" className="detail-lightbox-arrow next" onClick={() => setSelectedImage(index => (index + 1) % images.length)} aria-label="Next product image"><ChevronRight size={25} /></button>}
+      <span className="detail-lightbox-count">{selectedImage + 1} / {images.length}</span>
+    </div>}
   </div>;
 }
 
