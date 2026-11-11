@@ -108,8 +108,8 @@ export function validateProduct(input) {
     const url = new URL(input.amazonAffiliateUrl);
     const hostname = url.hostname.toLowerCase();
     const amazonHost = /^(?:(?:www|m)\.)?amazon\.(?:in|com|co\.in|co\.uk|de|fr|it|es|ca|co\.jp|com\.au|com\.br|com\.mx|ae|sa|sg|nl|se|pl|eg|com\.tr)$/.test(hostname)
-      || ['amzn.to', 'amzn.in', 'amzn.eu', 'amzn.asia', 'amzn.co.uk', 'amzn.com.au', 'amzn.de'].includes(hostname);
-    const shortLinkHost = ['amzn.to', 'amzn.in', 'amzn.eu', 'amzn.asia', 'amzn.co.uk', 'amzn.com.au', 'amzn.de'].includes(hostname);
+      || ['link.amazon', 'amzn.to', 'amzn.in', 'amzn.eu', 'amzn.asia', 'amzn.co.uk', 'amzn.com.au', 'amzn.de'].includes(hostname);
+    const shortLinkHost = ['link.amazon', 'amzn.to', 'amzn.in', 'amzn.eu', 'amzn.asia', 'amzn.co.uk', 'amzn.com.au', 'amzn.de'].includes(hostname);
     const productPath = /\/(?:dp|gp\/product|gp\/aw\/d|gp\/offer-listing)\/[a-z0-9]{10}(?:[/?]|$)/i.test(url.pathname);
     if (!['http:', 'https:'].includes(url.protocol) || !amazonHost || url.pathname === '/' || (!shortLinkHost && !productPath)) {
       return 'Enter a direct Amazon product URL or an Amazon product short link.';

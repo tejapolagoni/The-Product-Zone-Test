@@ -81,3 +81,11 @@ test('accepts Amazon India affiliate product URLs and rejects generic homepages'
   assert.equal(validateProduct({ ...validProduct, amazonAffiliateUrl: 'https://www.amazon.in/dp/B012345678?tag=example-21' }), null);
   assert.match(validateProduct({ ...validProduct, amazonAffiliateUrl: 'https://www.amazon.in/?tag=example-21' }), /direct Amazon product URL/);
 });
+
+test('accepts Amazon Associates link.amazon short links and preserves them exactly', () => {
+  const affiliateUrl = 'https://link.amazon/B02rSl7nq';
+  const product = { ...validProduct, amazonAffiliateUrl: affiliateUrl };
+
+  assert.equal(validateProduct(product), null);
+  assert.equal(normalizeProduct(product).amazonAffiliateUrl, affiliateUrl);
+});

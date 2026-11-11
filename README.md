@@ -73,7 +73,7 @@ The optional imported price is retained in MongoDB for admin reference only and 
 - `POST /api/categories`, `PUT /api/categories/:id`, `DELETE /api/categories/:id`.
 - `POST /api/uploads` — admin-only image upload (JPEG, PNG, WebP or GIF, up to 5 MB); image bytes are stored in the MongoDB `productImages` GridFS bucket and served from `/uploads/:fileId`.
 
-All product and category mutations require the administrator cookie and the configured `CLIENT_ORIGIN`. Product URLs are stored exactly as provided; direct Amazon marketplace product URLs (including Amazon India) and supported Amazon short-link hosts are accepted. Generic Amazon home/search pages and non-Amazon destinations are rejected. Verify each product and tracking tag in Associates Central.
+All product and category mutations require the administrator cookie and the configured `CLIENT_ORIGIN`. Product URLs are stored exactly as provided; direct Amazon marketplace product URLs (including Amazon India) and supported Amazon short-link hosts, including `link.amazon`, are accepted. Generic Amazon home/search pages and non-Amazon destinations are rejected. Verify each product and tracking tag in Associates Central.
 
 ## Amazon affiliate policies
 
