@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, Compass, Expand, Gauge, Heart, Lightbulb, Package, Ruler, Search, Settings2, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Compass, Expand, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ProductCard from './components/ProductCard.jsx';
 import { EmptyState, ErrorState, Loading, SectionHeading } from './components/Shared.jsx';
@@ -61,28 +61,41 @@ function displayField(value) {
     .replace(/\b\w/g, character => character.toUpperCase());
 }
 
-function featurePresentation(title, text) {
-  if (/^(feature|special feature|product highlight|highlight)$/i.test(title)) title = '';
-  const content = `${title} ${text}`;
-  if (/\b(light|lighting|led|illumination)\b/i.test(content)) return { title: title || 'Lighting', Icon: Lightbulb };
-  if (/\b(comfort|comfortable|ergonomic|cushion|breathable)\b/i.test(content)) return { title: title || 'Comfort', Icon: Heart };
-  if (/\b(performance|powerful|efficient|speed|output)\b/i.test(content)) return { title: title || 'Performance', Icon: Gauge };
-  if (/\b(build|built|durab|stainless|solid|construction|material)\b/i.test(content)) return { title: title || 'Build quality', Icon: Package };
-  if (/\b(dimension|size|weight|fit)\b/i.test(content)) return { title: title || 'Made to fit', Icon: Ruler };
-  if (/\b(easy|convenien|portable|quick|simple|one.touch)\b/i.test(content)) return { title: title || 'Convenience', Icon: Settings2 };
-  if (/\b(design|style|finish|look|premium)\b/i.test(content)) return { title: title || 'Design', Icon: Sparkles };
-  return { title: title || 'Product highlight', Icon: Sparkles };
+function specificationCategory(name) {
+  const field = normalizedField(name);
+  if (/dimension|weight|size|fit/.test(field)) return 'Dimensions & Fit';
+  if (/material|build|construction|finish/.test(field)) return 'Materials & Build';
+  if (/battery|voltage|wattage|power/.test(field)) return 'Power & Battery';
+  if (/connectivity|compatibility|wireless|frequency|operatingsystem/.test(field)) return 'Connectivity';
+  return 'Product Details';
+}
+
+function featureSpecification(name, text) {
+  const content = `${name} ${text}`;
+  if (/\b(light|lighting|led|illumination)\b/i.test(content)) return 'Lighting';
+  if (/\b(comfort|comfortable|ergonomic|cushion|breathable)\b/i.test(content)) return 'Comfort';
+  if (/\b(performance|powerful|efficient|speed|output)\b/i.test(content)) return 'Performance';
+  if (/\b(build|built|durab|stainless|solid|construction|material)\b/i.test(content)) return 'Build Quality';
+  if (/\b(dimension|size|weight|fit)\b/i.test(content)) return 'Dimensions & Fit';
+  if (/\b(easy|convenien|portable|quick|simple|one.touch)\b/i.test(content)) return 'Convenience';
+  if (/\b(design|style|finish|look|premium)\b/i.test(content)) return 'Design';
+  return name && !/^(feature|special feature|product highlight|highlight|details?)$/i.test(name)
+    ? displayField(name)
+    : 'Product Features';
 }
 
 function getProductPresentation(product) {
-  const highlights = [];
-  const specifications = [];
-  const seenHighlights = new Set();
+  const rows = [];
   const seenSpecifications = new Set();
-  const excludedFields = new Set(['productname', 'brand', 'category', 'description', 'image', 'images', 'tags', 'price', 'createdat', 'id', '_id', 'amazonaffiliateurl']);
+  const seenFeatureDetails = new Set();
+  const featureGroups = new Map();
+  const excludedFields = new Set(['productname', 'brand', 'category', 'description', 'image', 'images', 'tags', 'price', 'createdat', 'updatedat', 'id', '_id', 'v', '__v', 'isfeatured', 'istrending', 'isrecommended', 'isvisible', 'amazonaffiliateurl']);
 
   function addSpecification(name, rawValue) {
-    const key = normalizedField(name);
+    let key = normalizedField(name).replace(/^item/, '');
+    if (key === 'modelno' || key === 'modelnumber') key = 'model';
+    if (key === 'dimension') key = 'dimensions';
+    if (key === 'colour') key = 'color';
     if (!key || excludedFields.has(key) || isExcludedProductField(name) || excludedProductInfoPattern.test(name)) return;
     const value = Array.isArray(rawValue) ? rawValue.filter(item => item !== null && item !== undefined).join(', ') : rawValue;
     if (value === null || value === undefined || typeof value === 'object') return;
@@ -90,18 +103,24 @@ function getProductPresentation(product) {
     if (!text) return;
     if (seenSpecifications.has(key)) return;
     seenSpecifications.add(key);
-    specifications.push({ name: displayField(name), value: text });
+    rows.push({ category: specificationCategory(name), specification: displayField(name), details: text });
   }
 
-  function addHighlight(name, rawValue) {
-    if (isExcludedProductField(name) || excludedProductInfoTextPattern.test(String(rawValue))) return;
+  function addFeature(name, rawValue) {
+    if (excludedFields.has(normalizedField(name)) || isExcludedProductField(name) || excludedProductInfoTextPattern.test(String(rawValue))) return;
     const text = String(rawValue ?? '').trim();
     if (!text) return;
-    const presentation = featurePresentation(name, text);
-    const signature = `${normalizedField(presentation.title)}:${normalizedField(text)}`;
-    if (seenHighlights.has(signature)) return;
-    seenHighlights.add(signature);
-    highlights.push({ ...presentation, text });
+    const detailKey = normalizedField(text);
+    if (seenFeatureDetails.has(detailKey)) return;
+    seenFeatureDetails.add(detailKey);
+    const specification = featureSpecification(name, text);
+    const key = normalizedField(specification);
+    const existing = featureGroups.get(key);
+    if (existing) {
+      if (!existing.values.some(value => normalizedField(value) === normalizedField(text))) existing.values.push(text);
+      return;
+    }
+    featureGroups.set(key, { category: 'Key Features', specification, values: [text] });
   }
 
   function consumeFeature(feature) {
@@ -111,7 +130,7 @@ function getProductPresentation(product) {
       if (typeof name === 'string' && value !== undefined) {
         if (excludedFields.has(normalizedField(name)) || isExcludedProductField(name) || excludedProductInfoPattern.test(name)) return;
         if (isTechnicalField(name)) addSpecification(name, value);
-        else addHighlight(displayField(name), value);
+        else addFeature(name, value);
         return;
       }
     }
@@ -119,13 +138,14 @@ function getProductPresentation(product) {
     const match = feature.match(/^([^:：]{2,60})\s*[:：]\s*(.+)$/);
     if (match) {
       const [, name, value] = match;
+      if (excludedFields.has(normalizedField(name))) return;
       if (isExcludedProductField(name) || excludedProductInfoPattern.test(name)) return;
       if (/^(brand|product name)$/i.test(name.trim())) return;
       if (isTechnicalField(name)) addSpecification(name, value);
-      else addHighlight(displayField(name), value);
+      else addFeature(name, value);
       return;
     }
-    addHighlight('', feature);
+    addFeature('', feature);
   }
 
   for (const [name, value] of Object.entries(product)) {
@@ -142,7 +162,12 @@ function getProductPresentation(product) {
     }
   }
 
-  return { highlights, specifications };
+  for (const group of featureGroups.values()) rows.unshift({
+    category: group.category,
+    specification: group.specification,
+    details: group.values.join(' · ')
+  });
+  return rows;
 }
 
 export default function HomePage() {
@@ -288,6 +313,8 @@ export function ProductDetailPage() {
   const [recentlyViewed, setRecentlyViewed] = useState(getRecentlyViewed);
   const imageCloseRef = useRef(null);
   const imageTriggerRef = useRef(null);
+  const specificationTableRef = useRef(null);
+  const specificationRows = useMemo(() => product ? getProductPresentation(product) : [], [product]);
   const images = useMemo(
     () => [...new Set([product?.image, ...(product?.images || [])].filter(Boolean))],
     [product?.image, product?.images]
@@ -346,12 +373,30 @@ export function ProductDetailPage() {
     };
   }, [imageOpen]);
 
+  useEffect(() => {
+    const tableRows = specificationTableRef.current?.querySelectorAll('tbody tr');
+    if (!tableRows?.length) return undefined;
+    if (!('IntersectionObserver' in window)) {
+      tableRows.forEach(row => row.classList.add('is-visible'));
+      return undefined;
+    }
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    tableRows.forEach(row => observer.observe(row));
+    return () => observer.disconnect();
+  }, [specificationRows]);
+
   if (loading) return <div className="detail-loading"><Loading label="Finding your product" /></div>;
   if (error && error !== 'Product not found.') return <div className="detail-loading"><ErrorState message={error} retry={() => setRetryKey(value => value + 1)} /></div>;
   if (!product) return <NotFoundPage product />;
 
   const activeImage = images[selectedImage] || product.image;
-  const { highlights, specifications } = getProductPresentation(product);
   const affiliateDisclosure = 'Some links are affiliate links. As an Amazon Associate I earn from qualifying purchases.';
   return <div className="page-shell detail-page">
     <nav className="detail-breadcrumbs" aria-label="Breadcrumb">
@@ -389,26 +434,20 @@ export function ProductDetailPage() {
         <div className="detail-trust-row"><span><ShieldCheck size={15} /> Product discovery, not checkout</span><span>Retailer handles purchase & delivery</span></div>
       </div>
     </div>
-    {highlights.length > 0 && <section className="detail-spec-section">
-      <div className="detail-section-heading"><span className="eyebrow">A CLOSER LOOK</span><h2>What makes it <em>stand out.</em></h2><p>Highlights based on the information provided for this product.</p></div>
-      <div className="detail-highlight-grid">{highlights.map(({ title, text, Icon }, index) =>
-        <article className="detail-highlight-card" key={`${title}-${text}-${index}`}>
-          <span className="detail-highlight-icon"><Icon size={18} strokeWidth={1.7} /></span>
-          <div><h3>{title}</h3><p>{text}</p></div>
-        </article>
-      )}</div>
-    </section>}
-    {specifications.length > 0 && <section className="detail-technical-section">
-      <div className="detail-section-heading"><span className="eyebrow">PRODUCT DETAILS</span><h2>Technical <em>specifications.</em></h2><p>Details are shown only when supplied with this product listing.</p></div>
-      <div className="detail-technical-grid">{specifications.slice(0, 6).map(({ name, value }) =>
-        <article key={`${normalizedField(name)}:${normalizedField(value)}`}><span>{name}</span><p>{value}</p></article>
-      )}</div>
-      {specifications.length > 6 && <details className="detail-specifications-more">
-        <summary>View all specifications <ChevronDown size={16} /></summary>
-        <div className="detail-technical-grid">{specifications.slice(6).map(({ name, value }) =>
-          <article key={`${normalizedField(name)}:${normalizedField(value)}`}><span>{name}</span><p>{value}</p></article>
-        )}</div>
-      </details>}
+    {specificationRows.length > 0 && <section className="detail-spec-section">
+      <div className="detail-section-heading"><span className="eyebrow">A CLOSER LOOK</span><h2>What makes it <em>stand out.</em></h2><p>Product information provided for this listing.</p></div>
+      <div className="detail-spec-table-scroll">
+        <table className="detail-spec-table" ref={specificationTableRef}>
+          <thead><tr><th scope="col">Category</th><th scope="col">Specification</th><th scope="col">Details</th></tr></thead>
+          <tbody>{specificationRows.map(({ category, specification, details }, index) =>
+            <tr key={`${normalizedField(category)}-${normalizedField(specification)}-${normalizedField(details)}`} style={{ '--spec-row-index': Math.min(index, 8) }}>
+              <td data-label="Category">{category}</td>
+              <td data-label="Specification">{specification}</td>
+              <td data-label="Details">{details}</td>
+            </tr>
+          )}</tbody>
+        </table>
+      </div>
     </section>}
     <section className="detail-about-brand">
       <span className="detail-brand-mark">{product.brand?.slice(0, 1)?.toUpperCase() || 'P'}</span>
