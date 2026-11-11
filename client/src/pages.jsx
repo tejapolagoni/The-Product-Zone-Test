@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronLeft, ChevronRight, Compass, Expand, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, Compass, Expand, Gauge, Heart, Lightbulb, Package, Ruler, Search, Settings2, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ProductCard from './components/ProductCard.jsx';
 import { EmptyState, ErrorState, Loading, SectionHeading } from './components/Shared.jsx';
@@ -33,6 +33,116 @@ function CategoryCard({ category }) {
 
 function ProductGrid({ products }) {
   return <div className="product-grid">{products.map((product, index) => <ProductCard key={product._id} product={product} number={index + 1} />)}</div>;
+}
+
+const technicalFieldPattern = /\b(manufacturer|model(?: number)?|dimensions?|weight|material|voltage|wattage|power source|connectivity|compatibility|battery|colou?r|size|capacity|item package quantity|included components|display type|resolution|frequency|mounting type|operating system|wireless|water resistance|screen size)\b/i;
+const excludedProductInfoPattern = /\b(asin|mpn|manufacturer part number|reviews?|ratings?)\b/i;
+const excludedProductInfoTextPattern = /\b(asin|mpn|manufacturer[\s_-]*part[\s_-]*number|(?:customer\s+)?reviews?|ratings?)\b|\b\d(?:\.\d+)?\s*(?:out of 5|\/5)\s*stars?\b/i;
+
+function normalizedField(value) {
+  return value.toLocaleLowerCase('en').replace(/[^a-z0-9]/g, '');
+}
+
+function isTechnicalField(value) {
+  const key = normalizedField(value);
+  return technicalFieldPattern.test(value)
+    || /^(manufacturer|model|modelno|modelnumber|dimensions|itemdimensions|weight|itemweight|material|voltage|wattage|powersource|connectivity|compatibility|battery|color|colour|size|capacity|itempackagequantity|includedcomponents|displaytype|resolution|frequency|mountingtype|operatingsystem|wireless|waterresistance|screensize)$/.test(key);
+}
+
+function isExcludedProductField(value) {
+  return /^(asin|mpn|manufacturerpartnumber|partnumber|customerreview|customerreviews|review|reviews|rating|ratings|starrating|reviewcount)$/.test(normalizedField(value));
+}
+
+function displayField(value) {
+  return value
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, character => character.toUpperCase());
+}
+
+function featurePresentation(title, text) {
+  if (/^(feature|special feature|product highlight|highlight)$/i.test(title)) title = '';
+  const content = `${title} ${text}`;
+  if (/\b(light|lighting|led|illumination)\b/i.test(content)) return { title: title || 'Lighting', Icon: Lightbulb };
+  if (/\b(comfort|comfortable|ergonomic|cushion|breathable)\b/i.test(content)) return { title: title || 'Comfort', Icon: Heart };
+  if (/\b(performance|powerful|efficient|speed|output)\b/i.test(content)) return { title: title || 'Performance', Icon: Gauge };
+  if (/\b(build|built|durab|stainless|solid|construction|material)\b/i.test(content)) return { title: title || 'Build quality', Icon: Package };
+  if (/\b(dimension|size|weight|fit)\b/i.test(content)) return { title: title || 'Made to fit', Icon: Ruler };
+  if (/\b(easy|convenien|portable|quick|simple|one.touch)\b/i.test(content)) return { title: title || 'Convenience', Icon: Settings2 };
+  if (/\b(design|style|finish|look|premium)\b/i.test(content)) return { title: title || 'Design', Icon: Sparkles };
+  return { title: title || 'Product highlight', Icon: Sparkles };
+}
+
+function getProductPresentation(product) {
+  const highlights = [];
+  const specifications = [];
+  const seenHighlights = new Set();
+  const seenSpecifications = new Set();
+  const excludedFields = new Set(['productname', 'brand', 'category', 'description', 'image', 'images', 'tags', 'price', 'createdat', 'id', '_id', 'amazonaffiliateurl']);
+
+  function addSpecification(name, rawValue) {
+    const key = normalizedField(name);
+    if (!key || excludedFields.has(key) || isExcludedProductField(name) || excludedProductInfoPattern.test(name)) return;
+    const value = Array.isArray(rawValue) ? rawValue.filter(item => item !== null && item !== undefined).join(', ') : rawValue;
+    if (value === null || value === undefined || typeof value === 'object') return;
+    const text = String(value).trim();
+    if (!text) return;
+    if (seenSpecifications.has(key)) return;
+    seenSpecifications.add(key);
+    specifications.push({ name: displayField(name), value: text });
+  }
+
+  function addHighlight(name, rawValue) {
+    if (isExcludedProductField(name) || excludedProductInfoTextPattern.test(String(rawValue))) return;
+    const text = String(rawValue ?? '').trim();
+    if (!text) return;
+    const presentation = featurePresentation(name, text);
+    const signature = `${normalizedField(presentation.title)}:${normalizedField(text)}`;
+    if (seenHighlights.has(signature)) return;
+    seenHighlights.add(signature);
+    highlights.push({ ...presentation, text });
+  }
+
+  function consumeFeature(feature) {
+    if (feature && typeof feature === 'object' && !Array.isArray(feature)) {
+      const name = feature.name || feature.key || feature.label;
+      const value = feature.value ?? feature.description;
+      if (typeof name === 'string' && value !== undefined) {
+        if (excludedFields.has(normalizedField(name)) || isExcludedProductField(name) || excludedProductInfoPattern.test(name)) return;
+        if (isTechnicalField(name)) addSpecification(name, value);
+        else addHighlight(displayField(name), value);
+        return;
+      }
+    }
+    if (typeof feature !== 'string' || !feature.trim()) return;
+    const match = feature.match(/^([^:：]{2,60})\s*[:：]\s*(.+)$/);
+    if (match) {
+      const [, name, value] = match;
+      if (isExcludedProductField(name) || excludedProductInfoPattern.test(name)) return;
+      if (/^(brand|product name)$/i.test(name.trim())) return;
+      if (isTechnicalField(name)) addSpecification(name, value);
+      else addHighlight(displayField(name), value);
+      return;
+    }
+    addHighlight('', feature);
+  }
+
+  for (const [name, value] of Object.entries(product)) {
+    if (isTechnicalField(name) && value !== undefined) addSpecification(name, value);
+  }
+  for (const feature of product.features || []) consumeFeature(feature);
+  for (const source of [product.technicalSpecifications, product.specifications, product.attributes]) {
+    if (Array.isArray(source)) source.forEach(consumeFeature);
+    else if (source && typeof source === 'object') {
+      Object.entries(source).forEach(([name, value]) => {
+        if (isTechnicalField(name)) addSpecification(name, value);
+        else consumeFeature({ name, value });
+      });
+    }
+  }
+
+  return { highlights, specifications };
 }
 
 export default function HomePage() {
@@ -241,6 +351,7 @@ export function ProductDetailPage() {
   if (!product) return <NotFoundPage product />;
 
   const activeImage = images[selectedImage] || product.image;
+  const { highlights, specifications } = getProductPresentation(product);
   const affiliateDisclosure = 'Some links are affiliate links. As an Amazon Associate I earn from qualifying purchases.';
   return <div className="page-shell detail-page">
     <nav className="detail-breadcrumbs" aria-label="Breadcrumb">
@@ -268,10 +379,6 @@ export function ProductDetailPage() {
         <div className="detail-product-kicker"><span>{product.brand}</span><span className="detail-dot">/</span><span>{product.category}</span></div>
         <h1>{product.productName}</h1>
         <p className="detail-description">{product.description}</p>
-        {product.features?.length > 0 && <section className="detail-highlights" aria-labelledby="detail-highlights-title">
-          <h2 id="detail-highlights-title"><Sparkles size={15} /> PRODUCT HIGHLIGHTS</h2>
-          <ul>{product.features.map((feature, index) => <li key={`${feature}-${index}`}><Check size={15} /><span>{feature}</span></li>)}</ul>
-        </section>}
         <section className="detail-purchase-card" aria-label="View product on Amazon">
           <div className="purchase-card-top"><span className="purchase-card-mark">PZ</span><span>THE PRODUCT ZONE SELECT</span><ShieldCheck size={17} /></div>
           <p>Interested in this find?</p>
@@ -282,9 +389,26 @@ export function ProductDetailPage() {
         <div className="detail-trust-row"><span><ShieldCheck size={15} /> Product discovery, not checkout</span><span>Retailer handles purchase & delivery</span></div>
       </div>
     </div>
-    {product.features?.length > 0 && <section className="detail-spec-section">
-      <div className="detail-section-heading"><span className="eyebrow">A CLOSER LOOK</span><h2>What makes it <em>stand out.</em></h2><p>Product highlights provided for this listing.</p></div>
-      <div className="detail-spec-grid">{product.features.map((feature, index) => <article key={`${feature}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span><p>{feature}</p></article>)}</div>
+    {highlights.length > 0 && <section className="detail-spec-section">
+      <div className="detail-section-heading"><span className="eyebrow">A CLOSER LOOK</span><h2>What makes it <em>stand out.</em></h2><p>Highlights based on the information provided for this product.</p></div>
+      <div className="detail-highlight-grid">{highlights.map(({ title, text, Icon }, index) =>
+        <article className="detail-highlight-card" key={`${title}-${text}-${index}`}>
+          <span className="detail-highlight-icon"><Icon size={18} strokeWidth={1.7} /></span>
+          <div><h3>{title}</h3><p>{text}</p></div>
+        </article>
+      )}</div>
+    </section>}
+    {specifications.length > 0 && <section className="detail-technical-section">
+      <div className="detail-section-heading"><span className="eyebrow">PRODUCT DETAILS</span><h2>Technical <em>specifications.</em></h2><p>Details are shown only when supplied with this product listing.</p></div>
+      <div className="detail-technical-grid">{specifications.slice(0, 6).map(({ name, value }) =>
+        <article key={`${normalizedField(name)}:${normalizedField(value)}`}><span>{name}</span><p>{value}</p></article>
+      )}</div>
+      {specifications.length > 6 && <details className="detail-specifications-more">
+        <summary>View all specifications <ChevronDown size={16} /></summary>
+        <div className="detail-technical-grid">{specifications.slice(6).map(({ name, value }) =>
+          <article key={`${normalizedField(name)}:${normalizedField(value)}`}><span>{name}</span><p>{value}</p></article>
+        )}</div>
+      </details>}
     </section>}
     <section className="detail-about-brand">
       <span className="detail-brand-mark">{product.brand?.slice(0, 1)?.toUpperCase() || 'P'}</span>
