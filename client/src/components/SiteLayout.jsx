@@ -59,8 +59,8 @@ export function Footer() {
           <p>Good things, found thoughtfully.<br />Discover. Explore. Shop Smart.</p>
         </div>
         <div className="footer-links"><h3>Explore</h3><Link to="/products">All products</Link><Link to="/about">Our story</Link><Link to="/contact">Get in touch</Link></div>
-        <div className="footer-links"><h3>The details</h3><Link to="/privacy">Privacy policy</Link><Link to="/terms">Terms & conditions</Link><a href="https://www.instagram.com/theproduxzone/" target="_blank" rel="noreferrer">@theproduxzone <ArrowUpRight size={13} /></a></div>
-        <a className="social-link" href="https://www.instagram.com/theproduxzone/" target="_blank" rel="noreferrer" aria-label="Instagram @theproduxzone"><Instagram size={18} /></a>
+        <div className="footer-links"><h3>The details</h3><Link to="/privacy">Privacy policy</Link><Link to="/terms">Terms & conditions</Link><a href="https://www.instagram.com/the.produxzone/" target="_blank" rel="noreferrer">@the.produxzone <ArrowUpRight size={13} /></a></div>
+        <a className="social-link" href="https://www.instagram.com/the.produxzone/" target="_blank" rel="noreferrer" aria-label="Instagram @the.produxzone"><Instagram size={18} /></a>
       </div>
       <div className="affiliate-disclosure"><span className="disclosure-mark">i</span><p><strong>Affiliate disclosure</strong><br />As an Amazon Associate I earn from qualifying purchases. Some links on this website are affiliate links. If you click one and make a purchase, we may earn a commission at no additional cost to you.</p></div>
       <div className="footer-bottom"><span>© {new Date().getFullYear()} The Product Zone</span><span>Made for the curious.</span><Link to="/admin/login">Admin</Link></div>
