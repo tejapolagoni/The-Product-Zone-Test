@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import Product from '../src/models/Product.js';
 import Category from '../src/models/Category.js';
 import {
-  createProduct, deleteProduct, listProducts, updateProduct
+  createProduct, deleteProduct, listProducts, trackAffiliateClick, updateProduct
 } from '../src/controllers/productController.js';
 
 const productInput = {
@@ -94,8 +94,9 @@ test('deleteProduct removes the requested record', async t => {
 
 test('public product filters always exclude hidden products and honor all homepage flags', async t => {
   let receivedFilter;
+  let selectedFields;
   const query = {
-    select() { return this; },
+    select(fields) { selectedFields = fields; return this; },
     sort() { return this; },
     limit() { return this; },
     lean: async () => []
@@ -116,5 +117,35 @@ test('public product filters always exclude hidden products and honor all homepa
     isTrending: true,
     isRecommended: true
   });
+  assert.equal(selectedFields, '-price -affiliateClickCount');
   assert.deepEqual(res.body.products, []);
+});
+
+test('affiliate click tracking increments visible products without exposing visitor data', async t => {
+  const productId = '507f1f77bcf86cd799439011';
+  const update = t.mock.method(Product, 'updateOne', async () => ({ matchedCount: 1, modifiedCount: 1 }));
+  const res = response();
+  res.end = function end() { this.ended = true; return this; };
+
+  await trackAffiliateClick({ params: { id: productId } }, res);
+
+  assert.equal(res.statusCode, 204);
+  assert.equal(res.ended, true);
+  assert.deepEqual(update.mock.calls[0].arguments, [
+    { _id: productId, isVisible: true },
+    { $inc: { affiliateClickCount: 1 } }
+  ]);
+});
+
+test('affiliate click tracking does not count invalid or hidden products', async t => {
+  const update = t.mock.method(Product, 'updateOne', async () => ({ matchedCount: 0, modifiedCount: 0 }));
+  const invalidRes = response();
+  await trackAffiliateClick({ params: { id: 'invalid-id' } }, invalidRes);
+  assert.equal(invalidRes.statusCode, 404);
+  assert.equal(update.mock.calls.length, 0);
+
+  const hiddenRes = response();
+  await trackAffiliateClick({ params: { id: '507f1f77bcf86cd799439011' } }, hiddenRes);
+  assert.equal(hiddenRes.statusCode, 404);
+  assert.equal(update.mock.calls.length, 1);
 });

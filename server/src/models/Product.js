@@ -15,6 +15,7 @@ const productSchema = new mongoose.Schema({
   isTrending: { type: Boolean, default: false },
   isRecommended: { type: Boolean, default: false },
   isVisible: { type: Boolean, default: true },
+  affiliateClickCount: { type: Number, default: 0, min: 0 },
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: false, versionKey: false });
 

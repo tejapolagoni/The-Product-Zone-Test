@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Compass, Expand, Search, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Compass, Expand, Search, Share2, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ProductCard from './components/ProductCard.jsx';
 import { EmptyState, ErrorState, Loading, SectionHeading } from './components/Shared.jsx';
-import { api, imageUrl } from './lib/api.js';
+import { api, imageUrl, trackAffiliateClick } from './lib/api.js';
 import { productCategories } from './constants/productCategories.js';
 
 function usePageData(loader, dependencies = []) {
@@ -190,15 +190,15 @@ export default function HomePage() {
       <img className="hero-image" src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=2200&q=88" alt="" />
       <div className="hero-shade" />
       <div className="hero-content">
-        <span className="hero-overline"><span /> THE GOOD FIND EDITION — NO. 01</span>
-        <h1>Discover products<br />worth <em>buying.</em></h1>
-        <p>Explore trending fashion, accessories, gadgets<br className="desktop-break" /> and everyday essentials.</p>
+        <span className="hero-overline"><span /> THOUGHTFUL FINDS, ALL IN ONE PLACE</span>
+        <h1>Find what’s<br /><em>worth your time.</em></h1>
+        <p>Discover standout fashion, useful gadgets and everyday essentials—without the endless scroll.</p>
         <Link className="button button-lime" to="/products">Explore products <ArrowUpRight size={17} /></Link>
-        <span className="hero-footnote">THOUGHTFUL FINDS. ZERO NOISE.</span>
+        <div className="hero-trust-note"><span>01</span><p>Browse freely. When you’re ready, visit the retailer to learn more.</p></div>
       </div>
-      <div className="hero-side-note">A BETTER WAY TO FIND YOUR NEXT FAVORITE</div>
-      <a href="#discover" className="hero-scroll"><ArrowDown size={16} /> SCROLL TO EXPLORE</a>
-      <div className="hero-count">01 <span>—</span> 30</div>
+      <div className="hero-editorial-card"><span>THE PRODUCT ZONE / PRODUCT DISCOVERY</span><strong>Good things,<br /><em>found thoughtfully.</em></strong><Link to="/products?trending=true">Explore what’s trending <ArrowUpRight size={14} /></Link></div>
+      <a href="#discover" className="hero-scroll"><ArrowDown size={16} /> START DISCOVERING</a>
+      <div className="hero-count">01 <span>—</span> {String(categories.length).padStart(2, '0')} <small>CATEGORIES</small></div>
     </section>
 
     <section className="intro-strip" id="discover">
@@ -207,19 +207,19 @@ export default function HomePage() {
       <Link to="/about" className="text-link">Get to know us <ArrowUpRight size={14} /></Link>
     </section>
 
-    <section className="section-block categories-section">
-      <SectionHeading eyebrow="POPULAR CATEGORIES" title={<>Find your <em>kind of thing.</em></>} action="All categories" />
-      <div className="category-grid">{categories.map(category => <CategoryCard key={category._id || category.name} category={category} />)}</div>
-    </section>
-
     <section className="section-block featured-section">
-      <SectionHeading eyebrow="HAND-PICKED, NOT HYPED" title={<>The ones we're <em>into.</em></>} action="Explore all finds" />
-      {featuredLoading ? <Loading /> : featuredError ? <ErrorState message={featuredError} /> : featured.length ? <ProductGrid products={featured} /> : <EmptyState title="Our picks are on the way" message="We’re adding thoughtful finds here soon. In the meantime, explore the categories above." />}
+      <SectionHeading eyebrow="FEATURED FINDS / EDITOR’S PICKS" title={<>The ones worth <em>knowing.</em></>} action="Explore all finds" />
+      {featuredLoading ? <Loading /> : featuredError ? <ErrorState message={featuredError} /> : featured.length ? <ProductGrid products={featured} /> : <EmptyState title="Our picks are on the way" message="We’re adding thoughtful finds here soon. In the meantime, browse the full collection." />}
     </section>
 
     <section className="section-block trending-section">
-      <SectionHeading eyebrow="ON OUR RADAR" title={<>Worth a closer <em>look.</em></>} action="Browse the collection" />
+      <SectionHeading eyebrow="TRENDING NOW / ON OUR RADAR" title={<>Making a little <em>noise.</em></>} action="Browse the collection" to="/products?trending=true" />
       {trendingLoading ? <Loading /> : trendingError ? <ErrorState message={trendingError} /> : trending.length ? <ProductGrid products={trending} /> : <EmptyState title="The next big find is out there" message="Our trending edit will show up here as soon as we add products." />}
+    </section>
+
+    <section className="section-block categories-section">
+      <SectionHeading eyebrow="EXPLORE BY CATEGORY" title={<>Find your <em>kind of thing.</em></>} action="All products" />
+      <div className="category-grid">{categories.slice(0, 6).map(category => <CategoryCard key={category._id || category.name} category={category} />)}</div>
     </section>
 
     <section className="quote-band">
@@ -250,14 +250,24 @@ export function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: categoryData } = usePageData(() => api.categories(), []);
   const query = searchParams.get('q') || '';
+  const searchKey = searchParams.toString();
+  const [searchText, setSearchText] = useState(query);
   const category = searchParams.get('category') || '';
   const { data, error, loading } = usePageData(
     () => api.products({ ...Object.fromEntries(searchParams.entries()), page: searchParams.get('page') || '1', pageSize: '24' }),
-    [searchParams.toString()]
+    [searchKey]
   );
   const products = data?.products || [];
   const brands = useMemo(() => data?.brands || [...new Set(products.map(product => product.brand))].sort(), [data, products]);
   const pagination = data?.pagination;
+
+  useEffect(() => setSearchText(query), [query]);
+
+  useEffect(() => {
+    if (searchText.trim() === query.trim()) return undefined;
+    const timer = window.setTimeout(() => setFilter('q', searchText.trim()), 280);
+    return () => window.clearTimeout(timer);
+  }, [searchText, query]);
 
   function setFilter(key, value) {
     const next = new URLSearchParams(searchParams);
@@ -266,19 +276,31 @@ export function ProductsPage() {
     setSearchParams(next);
   }
 
+  function setCollectionFilter(value) {
+    const next = new URLSearchParams(searchParams);
+    ['featured', 'trending', 'recommended'].forEach(flag => next.delete(flag));
+    if (value) next.set(value, 'true');
+    next.delete('page');
+    setSearchParams(next);
+  }
+
+  const collectionFilter = ['featured', 'trending', 'recommended'].find(flag => searchParams.get(flag) === 'true') || '';
+  const hasFilters = ['q', 'category', 'brand', 'featured', 'trending', 'recommended'].some(key => searchParams.has(key));
+
   return <div className="page-shell listing-page">
     <div className="page-kicker"><span>THE PRODUCT INDEX</span><span>GOOD THINGS, FOUND THOUGHTFULLY</span></div>
     <div className="listing-title-row"><div><span className="eyebrow">A GROWING COLLECTION</span><h1>All the <em>good finds.</em></h1><p>Considered picks for your wardrobe, your everyday and everything in between.</p></div><div className="result-count">{loading ? '—' : String(pagination?.total ?? products.length).padStart(2, '0')} <span>FINDS</span></div></div>
-    <form className="listing-search" onSubmit={event => event.preventDefault()}>
-      <Search size={19} /><input value={query} onChange={event => setFilter('q', event.target.value)} placeholder="Search a product, brand or category..." aria-label="Search a product, brand or category" />
-      {query && <button type="button" onClick={() => setFilter('q', '')}>Clear</button>}
+    <form className="listing-search" role="search" onSubmit={event => event.preventDefault()}>
+      <Search size={19} aria-hidden="true" /><input value={searchText} onChange={event => setSearchText(event.target.value)} placeholder="Search a product, brand or category..." aria-label="Search a product, brand or category" autoComplete="off" />
+      {searchText && <button type="button" onClick={() => setSearchText('')}>Clear</button>}
     </form>
     <div className="filter-row">
       <div className="filter-label">FILTER THE FINDS <span>↓</span></div>
       <label><span>Category</span><select value={category} onChange={event => setFilter('category', event.target.value)}><option value="">All categories</option>{(categoryData?.categories || productCategories).map(item => <option key={item._id || item.name} value={item.name}>{item.name}</option>)}</select></label>
       <label><span>Brand</span><select value={searchParams.get('brand') || ''} onChange={event => setFilter('brand', event.target.value)}><option value="">All brands</option>{brands.map(brand => <option key={brand}>{brand}</option>)}</select></label>
-      <label><span>Show</span><select value={searchParams.get('featured') || ''} onChange={event => setFilter('featured', event.target.value)}><option value="">Everything</option><option value="true">Featured only</option></select></label>
+      <label><span>Collection</span><select value={collectionFilter} onChange={event => setCollectionFilter(event.target.value)}><option value="">Everything</option><option value="featured">Featured only</option><option value="trending">Trending only</option><option value="recommended">Recommended only</option></select></label>
       <label><span>Sort by</span><select value={searchParams.get('sort') || 'newest'} onChange={event => setFilter('sort', event.target.value)}><option value="newest">Recently added</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option></select></label>
+      {hasFilters && <button className="clear-filters" type="button" onClick={() => { setSearchText(''); setSearchParams({}); }}>Clear filters</button>}
     </div>
     {loading ? <Loading /> : error ? <ErrorState message={error} /> : products.length ? <ProductGrid products={products} /> : <EmptyState title={query ? `No finds for “${query}”` : 'No products in this collection yet'} message="Try a different search or filter, or check back as we add new finds." />}
     {!loading && !error && pagination?.totalPages > 1 && <nav className="pagination" aria-label="Product pages">
@@ -332,9 +354,34 @@ export function ProductDetailPage() {
     const ogDescription = document.querySelector('meta[property="og:description"]');
     if (ogDescription) ogDescription.setAttribute('content', product.description.slice(0, 160));
     const ogImage = document.querySelector('meta[property="og:image"]');
-    if (ogImage) ogImage.setAttribute('content', imageUrl(product.image));
+    if (ogImage) ogImage.setAttribute('content', new URL(imageUrl(product.image), window.location.origin).href);
+    const ogUrl = document.querySelector('meta[property="og:url"]');
+    if (ogUrl) ogUrl.setAttribute('content', `${window.location.origin}${window.location.pathname}`);
+    const ogType = document.querySelector('meta[property="og:type"]');
+    if (ogType) ogType.setAttribute('content', 'product');
+    const canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) canonical.setAttribute('href', `${window.location.origin}${window.location.pathname}`);
+    const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+    if (twitterTitle) twitterTitle.setAttribute('content', document.title);
+    const twitterDescription = document.querySelector('meta[name="twitter:description"]');
+    if (twitterDescription) twitterDescription.setAttribute('content', product.description.slice(0, 160));
     const twitterImage = document.querySelector('meta[name="twitter:image"]');
-    if (twitterImage) twitterImage.setAttribute('content', imageUrl(product.image));
+    if (twitterImage) twitterImage.setAttribute('content', new URL(imageUrl(product.image), window.location.origin).href);
+    const structuredData = document.createElement('script');
+    structuredData.id = 'product-structured-data';
+    structuredData.type = 'application/ld+json';
+    structuredData.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: product.productName,
+      description: product.description,
+      image: new URL(imageUrl(product.image), window.location.origin).href,
+      category: product.category,
+      ...(product.brand ? { brand: { '@type': 'Brand', name: product.brand } } : {}),
+      url: `${window.location.origin}${window.location.pathname}`
+    }).replace(/</g, '\\u003c');
+    document.getElementById('product-structured-data')?.remove();
+    document.head.append(structuredData);
     setSelectedImage(0);
     setImageOpen(false);
 
@@ -355,6 +402,7 @@ export function ProductDetailPage() {
     } catch {
       // Browsing still works when storage is disabled or full.
     }
+    return () => structuredData.remove();
   }, [product]);
 
   useEffect(() => {
@@ -398,6 +446,8 @@ export function ProductDetailPage() {
 
   const activeImage = images[selectedImage] || product.image;
   const affiliateDisclosure = 'Some links are affiliate links. As an Amazon Associate I earn from qualifying purchases.';
+  const shareUrl = `${window.location.origin}${window.location.pathname}`;
+  const shareText = `${product.productName} — THE PRODUCT ZONE`;
   return <div className="page-shell detail-page">
     <nav className="detail-breadcrumbs" aria-label="Breadcrumb">
       <Link to="/">Home</Link><ChevronRight size={13} /><Link to="/products">Products</Link><ChevronRight size={13} /><Link to={`/products?category=${encodeURIComponent(product.category)}`}>{product.category}</Link><ChevronRight size={13} /><span aria-current="page">{product.productName}</span>
@@ -428,10 +478,15 @@ export function ProductDetailPage() {
           <div className="purchase-card-top"><span className="purchase-card-mark">PZ</span><span>THE PRODUCT ZONE SELECT</span><ShieldCheck size={17} /></div>
           <p>Interested in this find?</p>
           <span className="purchase-card-note">See current product details directly on Amazon.</span>
-          <a className="button detail-amazon" href={product.amazonAffiliateUrl} target="_blank" rel="nofollow sponsored noreferrer">VIEW ON AMAZON <ArrowUpRight size={17} /></a>
+          <a className="button detail-amazon" href={product.amazonAffiliateUrl} target="_blank" rel="nofollow sponsored noreferrer" onClick={() => trackAffiliateClick(product._id)}>VIEW ON AMAZON <ArrowUpRight size={17} /></a>
           <small>{affiliateDisclosure}</small>
         </section>
         <div className="detail-trust-row"><span><ShieldCheck size={15} /> Product discovery, not checkout</span><span>Retailer handles purchase & delivery</span></div>
+        <div className="detail-share-links" aria-label="Share this product">
+          <span><Share2 size={14} /> SHARE THIS FIND</span>
+          <a href={`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`} target="_blank" rel="noreferrer">WhatsApp</a>
+          <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noreferrer">Facebook</a>
+        </div>
       </div>
     </div>
     {specificationRows.length > 0 && <section className="detail-spec-section">
@@ -463,7 +518,7 @@ export function ProductDetailPage() {
       <ProductGrid products={recentProducts} />
     </section>}
     <div className="detail-affiliate-note"><ShieldCheck size={18} /><p>{affiliateDisclosure} You’ll leave The Product Zone and visit Amazon. Prices, availability, shipping, and returns are handled by the retailer.</p></div>
-    <div className="detail-mobile-buy"><span>{product.productName}</span><a href={product.amazonAffiliateUrl} target="_blank" rel="nofollow sponsored noreferrer">VIEW ON AMAZON <ArrowUpRight size={16} /></a></div>
+    <div className="detail-mobile-buy"><span>{product.productName}</span><a href={product.amazonAffiliateUrl} target="_blank" rel="nofollow sponsored noreferrer" onClick={() => trackAffiliateClick(product._id)}>VIEW ON AMAZON <ArrowUpRight size={16} /></a></div>
     {imageOpen && <div className="detail-lightbox" role="dialog" aria-modal="true" aria-label={`${product.productName} full-screen image`} onMouseDown={event => { if (event.target === event.currentTarget) setImageOpen(false); }}>
       <button ref={imageCloseRef} type="button" className="detail-lightbox-close" onClick={() => setImageOpen(false)} aria-label="Close full-screen image"><X size={23} /></button>
       {images.length > 1 && <button type="button" className="detail-lightbox-arrow previous" onClick={() => setSelectedImage(index => (index - 1 + images.length) % images.length)} aria-label="Previous product image"><ChevronLeft size={25} /></button>}
@@ -485,7 +540,7 @@ export function ContactPage() {
 export function LegalPage({ type }) {
   const privacy = type === 'privacy';
   return <div className="page-shell legal-page"><div className="page-kicker"><span>THE IMPORTANT BITS</span><span>LAST UPDATED: NOVEMBER 2026</span></div><span className="eyebrow">{privacy ? 'YOUR DATA, YOUR BUSINESS' : 'THE FINE PRINT'}</span><h1>{privacy ? <>Privacy <em>policy.</em></> : <>Terms & <em>conditions.</em></>}</h1>
-    {privacy ? <><p className="legal-lead">Your privacy matters. This website is a product discovery and affiliate referral site; we do not process purchases or collect payment details.</p><h2>Information we collect</h2><p>We do not require an account to browse. If you contact us through Instagram or email, we receive the information you choose to share in your message. Instagram may also process information according to its own privacy policy. Our hosting provider may process standard technical logs needed to operate and protect this website.</p><h2>Affiliate links and third parties</h2><p>Some links lead to Amazon or other retailers. When you follow a link, that retailer’s own privacy policy and practices apply. Affiliate tracking may be used by the retailer to attribute a referral.</p><h2>External assets</h2><p>Some website imagery and fonts are loaded from third-party providers. Their servers may receive technical connection data, such as your IP address, when your browser requests those assets. Please review their privacy practices for more information.</p><h2>Cookies and security</h2><p>This public site does not use advertising or analytics cookies by default. The administrator area uses a secure, HTTP-only session cookie to protect access. We take reasonable steps to protect information but cannot guarantee the security of data transmitted over the internet.</p><h2>Contact</h2><p>Questions about this policy? <Link to="/contact">Get in touch</Link>.</p></> : <><p className="legal-lead">By using The Product Zone, you agree to these terms. The website is an informational product showcase and does not sell products directly.</p><h2>Product links and affiliate disclosure</h2><p>Some links are affiliate links. As an Amazon Associate I earn from qualifying purchases. Clicking a link takes you to the retailer’s website. Any purchase, price, availability, shipping, returns or customer service is handled solely by that retailer.</p><h2>Information on this site</h2><p>Product descriptions and images are provided for discovery purposes and may be updated. Retailers control the current product details. We do not display or guarantee prices, ratings, reviews or availability.</p><h2>Use of the website</h2><p>You agree not to misuse this website or interfere with its operation. The site and its content are provided “as is” to the extent permitted by law. These terms may be updated from time to time.</p><h2>Contact</h2><p>Questions? <Link to="/contact">Get in touch</Link>.</p></>}
+    {privacy ? <><p className="legal-lead">Your privacy matters. This website is a product discovery and affiliate referral site; we do not process purchases or collect payment details.</p><h2>Information we collect</h2><p>We do not require an account to browse. If you contact us through Instagram or email, we receive the information you choose to share in your message. Instagram may also process information according to its own privacy policy. Our hosting provider may process standard technical logs needed to operate and protect this website.</p><h2>Affiliate link click counts</h2><p>We keep a per-product count of clicks on Amazon links to understand which products visitors find useful. These counts are not linked to a visitor profile, and we do not store a visitor’s identity with a click count. The retailer may separately use affiliate tracking when you visit its website.</p><h2>Affiliate links and third parties</h2><p>Some links lead to Amazon or other retailers. When you follow a link, that retailer’s own privacy policy and practices apply. Affiliate tracking may be used by the retailer to attribute a referral.</p><h2>External assets</h2><p>Some website imagery and fonts are loaded from third-party providers. Their servers may receive technical connection data, such as your IP address, when your browser requests those assets. Please review their privacy practices for more information.</p><h2>Cookies and security</h2><p>This public site does not use advertising or analytics cookies by default. The administrator area uses a secure, HTTP-only session cookie to protect access. We take reasonable steps to protect information but cannot guarantee the security of data transmitted over the internet.</p><h2>Contact</h2><p>Questions about this policy? <Link to="/contact">Get in touch</Link>.</p></> : <><p className="legal-lead">By using The Product Zone, you agree to these terms. The website is an informational product showcase and does not sell products directly.</p><h2>Product links and affiliate disclosure</h2><p>Some links are affiliate links. As an Amazon Associate I earn from qualifying purchases. Clicking a link takes you to the retailer’s website. Any purchase, price, availability, shipping, returns or customer service is handled solely by that retailer.</p><h2>Information on this site</h2><p>Product descriptions and images are provided for discovery purposes and may be updated. Retailers control the current product details. We do not display or guarantee prices, ratings, reviews or availability.</p><h2>Use of the website</h2><p>You agree not to misuse this website or interfere with its operation. The site and its content are provided “as is” to the extent permitted by law. These terms may be updated from time to time.</p><h2>Contact</h2><p>Questions? <Link to="/contact">Get in touch</Link>.</p></>}
   </div>;
 }
 

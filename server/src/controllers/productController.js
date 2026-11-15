@@ -1,5 +1,6 @@
-import Product from '../models/Product.js';
+import mongoose from 'mongoose';
 import Category from '../models/Category.js';
+import Product from '../models/Product.js';
 
 export async function listProducts(req, res) {
   const { brand, featured, trending, recommended, sort = 'newest', limit, page, pageSize } = req.query;
@@ -39,7 +40,7 @@ export async function listProducts(req, res) {
 
   const sortBy = sort === 'oldest' ? { createdAt: 1 } : sort === 'name' ? { productName: 1 } : { createdAt: -1 };
   const paginated = page !== undefined || pageSize !== undefined;
-  const query = Product.find(filter).select('-price').sort(sortBy);
+  const query = Product.find(filter).select('-price -affiliateClickCount').sort(sortBy);
   if (!paginated) {
     if (limit !== undefined) query.limit(Math.min(Number(limit), 100));
     return res.json({ products: await query.lean() });
@@ -60,9 +61,20 @@ export async function listProducts(req, res) {
 }
 
 export async function getProduct(req, res) {
-  const product = await Product.findOne({ _id: req.params.id, isVisible: true }).select('-price').lean();
+  const product = await Product.findOne({ _id: req.params.id, isVisible: true }).select('-price -affiliateClickCount').lean();
   if (!product) return res.status(404).json({ message: 'Product not found.' });
   res.json({ product });
+}
+
+export async function trackAffiliateClick(req, res) {
+  const { id } = req.params;
+  if (!mongoose.isValidObjectId(id)) return res.status(404).json({ message: 'Product not found.' });
+  const result = await Product.updateOne(
+    { _id: id, isVisible: true },
+    { $inc: { affiliateClickCount: 1 } }
+  );
+  if (!result.matchedCount) return res.status(404).json({ message: 'Product not found.' });
+  return res.status(204).end();
 }
 
 export async function listAdminProducts(req, res) {

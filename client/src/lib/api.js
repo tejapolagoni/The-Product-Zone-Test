@@ -67,6 +67,20 @@ export const api = {
   }
 };
 
+export function trackAffiliateClick(productId) {
+  const url = `${apiBase}/api/products/${encodeURIComponent(productId)}/affiliate-click`;
+  try {
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon?.(url, new Blob([], { type: 'text/plain' }))) return;
+  } catch (error) {
+    console.warn('Affiliate click tracking could not use sendBeacon.', error);
+  }
+  fetch(url, { method: 'POST', keepalive: true, credentials: 'omit' })
+    .then(response => {
+      if (!response.ok) console.warn(`Affiliate click tracking returned ${response.status}.`);
+    })
+    .catch(error => console.warn('Affiliate click tracking could not be sent.', error));
+}
+
 export function imageUrl(image) {
   if (!image?.startsWith('/uploads/')) return image;
   if (import.meta.env.PROD && !apiBase) return `/api${image}`;

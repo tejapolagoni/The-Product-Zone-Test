@@ -13,12 +13,14 @@ const links = [
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
 
   function submitSearch(event) {
     event.preventDefault();
     navigate(`/products${search.trim() ? `?q=${encodeURIComponent(search.trim())}` : ''}`);
     setMenuOpen(false);
+    setSearchOpen(false);
   }
 
   return (
@@ -34,10 +36,11 @@ export function Header() {
             <NavLink key={label} to={href} onClick={() => setMenuOpen(false)}>{label}</NavLink>
           ))}
         </nav>
-        <form className="nav-search" onSubmit={submitSearch} role="search">
+        <form className={`nav-search${searchOpen ? ' is-open' : ''}`} onSubmit={submitSearch} role="search">
           <Search size={16} aria-hidden="true" />
-          <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Find your next favorite" aria-label="Search products" />
-          <button type="submit" aria-label="Submit search"><ArrowUpRight size={16} /></button>
+          <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Find your next favorite" aria-label="Search products" autoComplete="off" />
+          <button className="nav-search-submit" type="submit" aria-label="Submit search"><ArrowUpRight size={16} /></button>
+          <button className="nav-search-toggle" type="button" onClick={() => setSearchOpen(open => !open)} aria-label={searchOpen ? 'Close search' : 'Open search'} aria-expanded={searchOpen}>{searchOpen ? <X size={17} /> : <Search size={17} />}</button>
         </form>
         <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen}>
           {menuOpen ? <X size={21} /> : <Menu size={21} />}

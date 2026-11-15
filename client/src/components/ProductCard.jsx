@@ -1,13 +1,16 @@
 import { ArrowUpRight, MoveUpRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { imageUrl } from '../lib/api.js';
+import { imageUrl, trackAffiliateClick } from '../lib/api.js';
 
 export default function ProductCard({ product, number }) {
   return (
-    <article className="product-card">
+    <article className={`product-card${product.isTrending ? ' is-trending' : ''}`}>
       <Link to={`/products/${product._id}`} className="product-image-wrap" aria-label={`View ${product.productName} details`}>
         <img src={imageUrl(product.image)} alt={product.productName} loading="lazy" decoding="async" />
-        {product.isFeatured && <span className="product-badge">OUR PICK</span>}
+        <span className="product-badges">
+          {product.isFeatured && <span className="product-badge">FEATURED</span>}
+          {product.isTrending && <span className="product-badge trending-badge">TRENDING</span>}
+        </span>
         <span className="product-index">{String(number || 1).padStart(2, '0')}</span>
         <span className="image-arrow"><MoveUpRight size={17} /></span>
       </Link>
@@ -17,7 +20,7 @@ export default function ProductCard({ product, number }) {
         <p>{product.description}</p>
         <div className="product-card-actions">
           <Link className="text-link" to={`/products/${product._id}`}>Discover <ArrowUpRight size={14} /></Link>
-          <a className="amazon-link" href={product.amazonAffiliateUrl} target="_blank" rel="nofollow sponsored noreferrer">View on Amazon <ArrowUpRight size={13} /></a>
+          <a className="amazon-link" href={product.amazonAffiliateUrl} target="_blank" rel="nofollow sponsored noreferrer" onClick={() => trackAffiliateClick(product._id)}>View on Amazon <ArrowUpRight size={13} /></a>
         </div>
       </div>
     </article>

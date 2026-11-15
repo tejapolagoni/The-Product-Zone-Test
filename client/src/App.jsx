@@ -31,6 +31,17 @@ function PageTitle() {
     if (twitterTitle) twitterTitle.setAttribute('content', document.title);
     const twitterDescription = document.querySelector('meta[name="twitter:description"]');
     if (twitterDescription) twitterDescription.setAttribute('content', description?.content || '');
+    const robots = document.querySelector('meta[name="robots"]');
+    if (robots) robots.setAttribute('content', location.pathname.startsWith('/admin') ? 'noindex, nofollow' : 'index, follow');
+    if (!/^\/products\/[^/]+$/.test(location.pathname)) {
+      const ogType = document.querySelector('meta[property="og:type"]');
+      if (ogType) ogType.setAttribute('content', 'website');
+      const defaultImage = new URL('/og-image.png', window.location.origin).href;
+      const ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage) ogImage.setAttribute('content', defaultImage);
+      const twitterImage = document.querySelector('meta[name="twitter:image"]');
+      if (twitterImage) twitterImage.setAttribute('content', defaultImage);
+    }
   }, [location.pathname]);
   return null;
 }

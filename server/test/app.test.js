@@ -30,6 +30,16 @@ test('admin product endpoint denies unauthenticated requests before database acc
   });
 });
 
+test('affiliate click tracking rejects requests from untrusted origins', async () => {
+  await withServer(async origin => {
+    const response = await fetch(`${origin}/api/products/507f1f77bcf86cd799439011/affiliate-click`, {
+      method: 'POST'
+    });
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).message, 'This request origin is not allowed.');
+  });
+});
+
 test('bulk product import endpoints reject unauthenticated and untrusted requests', async () => {
   await withServer(async origin => {
     const response = await fetch(`${origin}/api/products/admin/import/preview`, {
